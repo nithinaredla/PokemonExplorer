@@ -1,103 +1,80 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { fetchPokemonList, fetchPokemon } from "@/lib/api";
+import { Pokemon } from "@/lib/types";
+import SearchBar from "@/components/SearchBar";
+import FilterDropdown from "@/components/FilterDropdown";
+import SortDropdown from "@/components/SortDropdown";
+import PokemonCard from "@/components/PokemonCard";
 
-export default function Home() {
+export default function HomePage() {
+  const searchParams = useSearchParams();
+  const query = searchParams.get("q")?.toLowerCase() || "";
+  const type = searchParams.get("type") || "all";
+  const sort = searchParams.get("sort") || "id-asc";
+  const [page, setPage] = useState(Number(searchParams.get("page") || 0));
+
+  const [pokemons, setPokemons] = useState<Pokemon[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const limit = 30;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const list = await fetchPokemonList(page * limit, limit, controller.signal);
+        let details = await Promise.all(list.results.map((p) => fetchPokemon(p.name, controller.signal)));
+        if (query) details = details.filter((p) => p.name.includes(query));
+        if (type !== "all") details = details.filter((p) => p.types.some(t => t.type.name === type));
+        details.sort((a, b) => {
+          switch (sort) {
+            case "name-asc": return a.name.localeCompare(b.name);
+            case "name-desc": return b.name.localeCompare(a.name);
+            case "id-desc": return b.id - a.id;
+            default: return a.id - b.id;
+          }
+        });
+        setPokemons(details);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== "CanceledError") {
+          setError("Failed to load Pokémon. Please try again.");
+        }
+      }
+      finally { setLoading(false); }
+    }
+    load();
+    return () => controller.abort();
+  }, [page, query, type, sort]);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div>
+      <h1 className="text-3xl font-bold mb-6">Pokémon Explorer</h1>
+      <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
+        <SearchBar />
+        <div className="flex gap-4">
+          <FilterDropdown />
+          <SortDropdown />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      {error && <div className="bg-red-100 text-red-600 p-4 rounded mb-4">{error} <button onClick={() => setPage(page)} className="underline text-blue-600">Retry</button></div>}
+
+      {loading ? <div className="grid grid-cols-5 md:grid-cols-6 gap-4">{Array.from({ length: limit }).map((_, i) => <div key={i} className="h-32 bg-gray-200 animate-pulse rounded" />)}</div> :
+        pokemons.length === 0 ? <div className="text-center py-10 text-gray-600">No Pokémon found.</div> :
+          <div className="grid grid-cols-5 md:grid-cols-6 gap-4">
+            {pokemons.map((p) => (
+              <PokemonCard key={p.id} pokemon={p} />
+            ))}
+          </div>}
+
+      <div className="flex justify-center mt-6 gap-4">
+        <button disabled={page === 0} onClick={() => setPage(p => Math.max(0, p - 1))} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500 transition">Prev</button>
+        <button onClick={() => setPage(p => p + 1)} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Next</button>
+      </div>
     </div>
   );
 }
