@@ -3,8 +3,15 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ["raw.githubusercontent.com"], // allow external Pokémon sprites
-  },
+  remotePatterns: [
+    {
+      protocol: "https",
+      hostname: "raw.githubusercontent.com", // update this to your domain
+      pathname: "/**",
+    },
+  ],
+},
+
 };
 
 export default nextConfig;
